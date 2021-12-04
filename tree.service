@@ -1,0 +1,17 @@
+[Unit]
+Description="RGB Tree"
+
+[Service]
+TimeoutStartSec=30
+WorkingDirectory=/home/pi/tree
+ExecStart=/usr/local/bin/python3.7 /home/pi/tree/thetree.py --service --log DEBUG
+Restart=always
+KillSignal=SIGINT
+#User=pi
+Environment=PYTHONUNBUFFERED=true
+Type=notify
+# restart after 20 seconds if it fails
+WatchdogSec=20
+
+[Install]
+WantedBy=multi-user.target
