@@ -10,7 +10,15 @@ https://github.com/ThePiHut/rgbxmastree#rgbxmastree
 
 Spiral and Rotate code taken from https://github.com/rendzina/XmasTree
 
-## Installation
+# Description
+
+Provides a simple web interface to the tree.
+
+THis allows selection from a number of LED Modes. Including "Sparkles","Hue","Layers","Spiral","Rotate" and "Fixed Colour". As well as an "Auto" option to reselect a random mode after a defined interval.
+
+FOr convenience the web page also allows shutting down the Raspberry Pi and restarting of the code to simplify development.
+
+# Installation
 
  ## Hardware
  The following hardware is used:
@@ -26,15 +34,16 @@ sudo apt install python3-gpiozero
 ```
 Copy all files to /home/pi/tree
 
-Install service so tree startss when the pi does
+Install service so tree starts when the pi does
 ```bash
 sudo systemctl enable /home/pi/tree/tree.service
+sudo systemctl start tree
 ```
 
 ## Web Interface
 Assuming pitree.home is the name of the pi
 
-http://pitree.home:8080/tree
+http://pitree:8080/tree
 
 **Note** There is no security on the web server on port 8080
 - Image copyright [https://thepihut.com/](ThePiHut)
