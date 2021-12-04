@@ -1,0 +1,125 @@
+$def with (title,ModeSelect)
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>$:title</title>
+<script language="javascript">
+function ChangeValue(comand,IDValue) {
+	if (IDValue != "") {
+		GetSetMode(comand,document.getElementById(IDValue).value)
+	} else {
+		GetSetMode(comand,"")
+	}
+	return false;
+}
+
+var xmlhttp = new XMLHttpRequest();
+xmlhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+        var myarr = JSON.parse(this.responseText);
+
+        StatusUpdate(myarr);
+    //~ } else {
+        //~ document.getElementById("message").innerHTML = ""
+    }
+}
+
+function GetSetMode(comand, value) {
+
+    path = location.href.substring(0,location.href.indexOf("/",10));
+
+    var url = path + "/api?action=" + comand + "&value=" + value;
+
+
+    xmlhttp.open("GET", url, true);
+    xmlhttp.send();
+
+    return false;
+
+};
+
+function GetStatus() {
+	GetSetMode("status")
+}
+
+function StatusUpdate(myarr) {
+document.getElementById("message").innerHTML = myarr.Current
+document.getElementById('mode').value = myarr.ModeText
+document.getElementById('brightness').value = myarr.Brightness
+document.getElementById('displaytime').value = myarr.displaytime
+document.getElementById('timeleft').innerHTML = myarr.timeleft
+if (myarr.ModeNo == 1) {
+    document.getElementById('displaytime').disabled = false
+    document.getElementById('timeleft').disabled = false
+} else {
+    document.getElementById('displaytime').disabled = true
+    document.getElementById('timeleft').disabled = false
+}
+};
+
+var refresher = setInterval(GetStatus,5000)
+
+
+</script>
+</head>
+    <body>
+    <noscript>Your browser does not support JavaScript!</noscript>
+        <h1>$:title</h1>
+        <table border=0>
+		<TR><TD>
+		Chosen Mode <BR>
+		<select id="mode" onchange="ChangeValue('mode', 'mode')">
+		$:ModeSelect
+		</select><BR>
+		</TD><TD rowspan=4><a href="https://thepihut.com/products/3d-rgb-xmas-tree-for-raspberry-pi" target="_blank"><img src="/static/pitree.jpg" width=400 height=400></a></TD>
+        <TD></TD>
+        </TR>
+		<TR><TD><P>Brightness<BR>
+		<select id="brightness" onchange="ChangeValue('brightness', 'brightness')">
+		<option value="1">1</option>
+		<option value="2">2</option>
+		<option value="3">3</option>
+		<option value="4">4</option>
+		<option value="5">5</option>
+		<option value="6">6</option>
+		<option value="7">7</option>
+		<option value="8">8</option>
+		<option value="9">9</option>
+		<option value="10">10</option>
+		<option value="11">11</option>
+		<option value="12">12</option>
+		<option value="13">13</option>
+		<option value="14">14</option>
+		<option value="15">15</option>
+		<option value="16">16</option>
+		</select></p>
+        <P>Time Between Changes<BR>
+        		<select id="displaytime" onchange="ChangeValue('displaytime', 'displaytime')">
+		<option value="30">30 Secs</option>
+		<option value="60">1 Min</option>
+		<option value="90">90 Secs</option>
+		<option value="120">2 Mins</option>
+		<option value="150">2.5 Mins</option>
+		<option value="180">3.0 Mins</option>
+		<option value="210">3.5 Mins</option>
+		<option value="240">4 Mins</option>
+		</select>
+        </p></TD>
+        <TD></TD>
+        </TR>
+		<tr><TD><input type="button" value="Set Default Display" onclick="ChangeValue('setdefaults', '')"></TD>
+        <TD></TD>
+        </TR>
+		<TR><TD>Current Display<BR><div id="message"></div>
+        Time Left (secs) : <div id="timeleft"> </div>
+        </TD>
+        <TD><P><input type="button" value="Restart Tree" onclick="ChangeValue('restart', '')"></P>
+        <P><input type="button" value="Shutdown Pi" onclick="ChangeValue('shutdown', '')"></P></TD>
+        </TR>
+		</table>
+		<script language="javascript">
+		GetSetMode("status")
+
+		</script>
+	</body>
+</html>
