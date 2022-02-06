@@ -1,0 +1,199 @@
+$def with (title,ModeSelect,checks)
+<html>
+
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>$:title</title>
+	<script language="javascript">
+
+		var showsettings = false
+		function ChangeValue(comand, IDValue) {
+			if (IDValue != "") {
+				GetSetMode(comand, document.getElementById(IDValue).value)
+			} else {
+				GetSetMode(comand, "")
+			}
+			return false;
+		}
+
+		function ToggleMode(comand, IDValue) {
+			if (IDValue != "") {
+				GetSetMode(comand, IDValue)
+			} else {
+				GetSetMode(comand, "")
+			}
+			return false;
+		}
+
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function () {
+			if (this.readyState == 4 && this.status == 200) {
+				var myarr = JSON.parse(this.responseText);
+
+				StatusUpdate(myarr);
+				//~ } else {
+				//~ document.getElementById("message").innerHTML = ""
+			}
+		}
+
+		function GetSetMode(comand, value) {
+
+			path = location.href.substring(0, location.href.indexOf("/", 10));
+
+			var url = path + "/api?action=" + comand + "&value=" + value;
+
+
+			xmlhttp.open("GET", url, true);
+			xmlhttp.send();
+
+			return false;
+
+		};
+
+		function GetStatus() {
+			GetSetMode("status")
+		}
+
+		function StatusUpdate(myarr) {
+			document.getElementById("message").innerHTML = myarr.Current
+			document.getElementById('mode').value = myarr.ModeText
+			document.getElementById('brightness').value = myarr.Brightness
+			document.getElementById('displaytime').value = myarr.displaytime
+			if (myarr.ModeNo == 1) {
+				document.getElementById('timeleft').innerHTML = myarr.timeleft
+				document.getElementById('displaytime').disabled = false
+				document.getElementById('timeleft').disabled = false
+			} else {
+				document.getElementById('timeleft').innerHTML = ""
+				document.getElementById('displaytime').disabled = true
+				document.getElementById('timeleft').disabled = false
+			}
+			modeno = 'mode' + 3
+			document.getElementById('settingsid').innerHTML = myarr[modeno]
+			//+ myarr['mode' + str(3)]
+		};
+
+		function ShowSettingsArea(settingsvalue) {
+			if (settingsvalue == true) {
+				document.getElementById('settingsarea').style.display = 'block'
+				document.getElementById('treearea').style.display = 'none'
+				document.getElementById('homeimage').style.display = 'block'
+				document.getElementById('settingsimage').style.display = 'none'
+			} else {
+				document.getElementById('settingsarea').style.display = 'none'
+				document.getElementById('treearea').style.display = 'block'
+				document.getElementById('homeimage').style.display = 'none'
+				document.getElementById('settingsimage').style.display = 'block'
+			}
+		}
+
+		function togglesettings() {
+			if (showsettings == true) {
+				showsettings = false
+			} else {
+				showsettings = true
+			}
+			ShowSettingsArea(showsettings)
+		}
+
+		var refresher = setInterval(GetStatus, 5000)
+
+	</script>
+</head>
+
+<body>
+	<noscript>Your browser does not support JavaScript!</noscript>
+	<h1>$:title</h1>
+	<table border=1>
+		<TR>
+			<TD>
+				Chosen Mode <BR>
+				<select id="mode" onchange="ChangeValue('mode', 'mode')">
+					$:ModeSelect
+				</select><BR>
+			</TD>
+			<TD rowspan=5 width=400 height=400>
+				<div id="settingsarea" style="display:none">
+					<div>Settings Available in Auto Mode</div>
+					<div>$:checks</div>
+				</div>
+				<div id="treearea" style="display:block">
+					<a href="https://thepihut.com/products/3d-rgb-xmas-tree-for-raspberry-pi" target="_blank"><img
+							src="/static/pitree.jpg" width=400 height=400></a>
+				</div>
+			</TD>
+			<TD>
+				<div >
+					<img id="homeimage" onclick="togglesettings(this)" src="/static/ic_home_black_48dp.png">
+					<img id="settingsimage" onclick="togglesettings(this)" src="/static/ic_settings_black_48dp.png">
+				</div>
+			</TD>
+		</TR>
+		<TR>
+			<TD>
+				<P>Brightness<BR>
+					<select id="brightness" onchange="ChangeValue('brightness', 'brightness')">
+						<option value="1">1</option>
+						<option value="2">2</option>
+						<option value="3">3</option>
+						<option value="4">4</option>
+						<option value="5">5</option>
+						<option value="6">6</option>
+						<option value="7">7</option>
+						<option value="8">8</option>
+						<option value="9">9</option>
+						<option value="10">10</option>
+						<option value="11">11</option>
+						<option value="12">12</option>
+						<option value="13">13</option>
+						<option value="14">14</option>
+						<option value="15">15</option>
+						<option value="16">16</option>
+					</select>
+				</p>
+				<P>Time Between Changes<BR>
+					<select id="displaytime" onchange="ChangeValue('displaytime', 'displaytime')">
+						<option value="30">30 Secs</option>
+						<option value="60">1 Min</option>
+						<option value="90">90 Secs</option>
+						<option value="120">2 Mins</option>
+						<option value="150">2.5 Mins</option>
+						<option value="180">3.0 Mins</option>
+						<option value="210">3.5 Mins</option>
+						<option value="240">4 Mins</option>
+					</select>
+				</p>
+			</TD>
+			<TD>
+				<div id="settingsid"></div>
+			</TD>
+		</TR>
+		<tr>
+			<TD><input type="button" value="Set Default Display" onclick="ChangeValue('setdefaults', '')"></TD>
+			<TD></TD>
+		</TR>
+		<TR>
+			<TD>Current Display<BR>
+				<div id="message"></div>
+			</TD>
+			<TD>
+				<P><input type="button" value="Restart Tree" onclick="ChangeValue('restart', '')"></P>
+			</TD>
+		</TR>
+		<TR>
+			<TD>Time Left (secs) : <div id="timeleft"> </div>
+			</TD>
+			<TD>
+				<P><input type="button" value="Shutdown Pi" onclick="ChangeValue('shutdown', '')"></P>
+			</TD>
+		</TR>
+	</table>
+	<script language="javascript">
+		GetSetMode("status")
+
+		ShowSettingsArea(showsettings)
+
+	</script>
+</body>
+
+</html>

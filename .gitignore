@@ -1,0 +1,15 @@
+tree-backup.py
+*.log
+*.log.*
+*.pyc
+webthetree.py
+treetest.py
+huecycle.py
+onebyone.py
+tree-original.py
+randomsparkles.py
+pitree.code-workspace
+rfcomm.service
+PiRGBTree
+.vscode/bookmarks.json
+settings.json

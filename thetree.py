@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# version 2.1
+# version 2.3
 #
-# Note no security on the wweb server on port 8080
+# Note no security on the web server on port 8080
 # Requires RGB Tree from
 #  https://thepihut.com/products/3d-rgb-xmas-tree-for-raspberry-pi
 
@@ -39,7 +39,6 @@ import serial
 # when called as a service
 import sdnotify
 
-
 import threading
 import signal
 from pathlib import Path
@@ -47,15 +46,13 @@ from pathlib import Path
 # Speed, delay between LED chnages
 treespeed = 0.1
 
-#global modelist, treemode, apphttp, tree
 # run mode (See modelist)
-treemode = 1
+treestate = 2
+currenttreemode = 1
 
-# default start brightness (Minimum)
+# default start brightness (Minimum) and maxiumum
 requiredbrightness=1
-
-# what to do when existing script
-exitaction  = "none"
+maxbrightness = 20
 
 # seconds interval to call service wathcdog
 WATCHDOGTIME = 5 #10
@@ -64,10 +61,14 @@ WATCHDOGTIME = 5 #10
 stopping = False
 
 # Next display mode
-nextdisplay = treemode
+nextdisplay = currenttreemode
+lasttreemode = currenttreemode # tracks last tremode via api that wasnt "off"
+lasttreestate = treestate
 
-modelist = ["Off","Auto","Sparkles","Hue","Layers","Spiral","Rotate","Fixed Colour"]
-modecount = len(modelist)-2
+statelist = ["Off","On","Random"]
+modelist = ["Sparkles","Hue","Layers","Spiral","Rotate","Fixed Colour"]
+modecount = len(modelist)
+allowedmodes = [0,1,2,3,4,5,6,7]
 
 # sequence for error replies
 global replyno
@@ -77,18 +78,18 @@ urls = (
     '/','error',
     '/api', 'api',
     '/api/(.+)', 'api',
-    '/tree', 'webtree'
+    '/tree', 'webtree',
+    '/settings', 'settings'
 )
 
 PixelList = (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
 SPIRAL = [12,6,15,16,0,7,19,24,11,5,14,17,1,8,20,23,10,4,13,18,2,9,21,22,3]
-ROTATE = [[12,11,10],[6,5,4],[15,14,13],[16,17,18],[0,1,2],[7,8,9],[19,20,21],[24,23,22]]
 
 # Spiral (partialy done)
 # 7,15,16,12,6,19,24,0), (8,14,17,11,5,20,23,1),(
 
 def random_color():
-    # Turn off 1 time in 4
+    # Turn off 1 time in 6
     if (random.randrange(6) == 1):
         r = 0.0
         g = 0.0
@@ -117,60 +118,76 @@ class treethread(threading.Thread):
         self.updatedisplay = False
 
     def run(self):
-        global treemode, nextdisplay, fixed_colour
+        global currenttreemode, nextdisplay, fixed_colour
 
         log.info("Starting tree display")
 
-        lastrandom = -1
+        lastrandomdisplay = -1
         while(not self.stopped ):
-            #time.sleep(10)
-            if (treemode == 0):
-                tree.off
-                time.sleep(2)
-                if (nextdisplay != 0):
-                    log.debug("display off")
-                nextdisplay = 0
+            if (treestate == 0):
+                tree.display = True
+                tree.off()
+                time.sleep(1)
 
-            elif treemode == 1:
-                nextdisplay = random.randrange(modecount)
-                # Get New random mode
-                while (lastrandom == nextdisplay):
-                    nextdisplay = random.randrange(modecount)
-                lastrandom = nextdisplay
-                log.debug("display picked %d", nextdisplay)
+            elif treestate == 2:
+                #nextdisplay = random.randrange(modecount)
+                allowedmodescopy = allowedmodes.copy()
+                if (allowedmodescopy.count(lastrandomdisplay)):
+                    allowedmodescopy.remove(lastrandomdisplay)
+                    log.debug("choose from " + ",".join(str(e) for e in allowedmodescopy) + " removed " + str(lastrandomdisplay))
+                randompick = random.randrange(0,len(allowedmodescopy))
+                #log.debug("randompick=" + str(randompick) +" max " + str(len(allowedmodescopy)))
+                nextdisplay = allowedmodescopy[randompick]
+                
+                # Get New random mode if its the same as the last one
+                # while (lastrandomdisplay == nextdisplay) & (len(allowedmodescopy) > 1):
+                #     #nextdisplay = random.randrange(modecount)
+                #     randompick = random.randrange(0,len(allowedmodescopy))
+                #     log.debug("randompick=" + str(randompick) +" max " + str(len(allowedmodescopy)))
+                #     nextdisplay = allowedmodescopy[randompick]
+                lastrandomdisplay = nextdisplay
 
             else: # Fixed display mode
-                nextdisplay = treemode - 1
+                nextdisplay = currenttreemode
                 log.debug("display fixed at %d", nextdisplay)
 
-            if nextdisplay == 1:
-                self.randomsparkles()
+            if (treestate != 0):
+                log.debug("display picked %d", nextdisplay)
+                if nextdisplay == 0:
+                    self.randomsparkles()
 
-            elif nextdisplay == 2:
-                self.hue()
+                elif nextdisplay == 1:
+                    self.hue()
 
-            elif nextdisplay == 3:
-                self.layers()
+                elif nextdisplay == 2:
+                    self.layers()
 
-            elif nextdisplay == 4:
-                self.spiral()
+                elif nextdisplay == 3:
+                    self.spiral()
 
-            elif nextdisplay == 5:
-                self.rotate()
+                elif nextdisplay == 4:
+                    self.rotate()
 
-            elif nextdisplay == modecount:
-                self.flicker()
+                elif nextdisplay == 5:
+                    self.flicker()
 
-            else:
-                tree.off()
+                else:
+                    treemodeset = True
+                    tree.off()
+
+        treemodeset = True
         tree.off()
         log.info("Stopping tree display")
 
     def randomsparkles(self):
         self.updatedisplay = True
         tree.display = True
+        pixel = 0
+        lastpixel = pixel
         while(self.updatedisplay ):
-            pixel = random.choice(tree)
+            while (pixel == lastpixel):
+                pixel = random.choice(tree)
+            lastpixel = pixel
             pixel.color = random_color()
         #tree.off()
 
@@ -224,7 +241,7 @@ class treethread(threading.Thread):
                 if not self.updatedisplay:
                     break
             #log.debug("redo %d", layers[layer][0])
-#			tree[layers[layer][0]].color = newcolor
+            #tree[layers[layer][0]].color = newcolor
 
             # Change direction
             layer += direction
@@ -243,8 +260,12 @@ class treethread(threading.Thread):
 
         self.updatedisplay = True
         tree.display = True
+        pixel = 0
+        lastpixel = pixel
         while(self.updatedisplay ):
-            pixel = random.choice(tree)
+            while (lastpixel == pixel):
+                pixel = random.choice(tree)
+            lastpixel = pixel
             if pixel.color == (0,0,0):
                 pixel.color = fixed_colour
             else:
@@ -264,6 +285,8 @@ class treethread(threading.Thread):
                     tree[val].color = Color.from_hsv(0.8,number/length,1).rgb
 
     def rotate(self):
+        ROTATE = [[12,11,10],[6,5,4],[15,14,13],[16,17,18],[0,1,2],[7,8,9],[19,20,21],[24,23,22]]
+
         self.updatedisplay = True
         tree.display = True
         while(self.updatedisplay ):
@@ -272,29 +295,29 @@ class treethread(threading.Thread):
                 #~ print(index,list)
                 listnum = 0
                 tree.display = False
-                for number, val in enumerate(list):
-                    listnum += 1
-                    if (listnum == 3):
-                        tree.display = True
-                    tree[val].color = newcolor
-                    # was
-                    # tree[val].color = colors[index]
-            if not self.updatedisplay:
-                break
+                if (self.updatedisplay ):
+                    for number, val in enumerate(list):
+                        listnum += 1
+                        if (listnum == 3):
+                            tree.display = True
+                        tree[val].color = newcolor
+                        # was
+                        # tree[val].color = colors[index]
+                else:
+                    break
 
 def signal_handler(signal, frame):
     log.info("Ctrl-C pressed")
     StopAll("")
 
 def StopAll(action):
-    global stopping, exitaction
+    global stopping
     try:
         #displaythread.stopped = True
         #displaythread.stop()
         treeweb.stop()
         treemodeset = True
         stopping = True
-        exitaction  = action
     except Exception as e: # stream not valid I guess
         log.error("Exception in StopAll: %s" , e)
 
@@ -322,60 +345,117 @@ class error:
 
 class webtree:
     def GET(self):
-        global treemode, treemodeset
+        global currenttreemode, treemodeset, allowedmodes, treestate
 
-        user_data = web.input(mode="")
+        #user_data = web.input(mode="")
 
-        if (user_data.mode != ""):
-            try: 
-                if (user_data.mode.upper == "ON"):
-                    treemode = 1
-                else:
-                    treemode = modelist.index(user_data.mode)
-                log.info("new treemode %s", treemode)
-                treemodeset = True
-            except:
-                log.debug("Invalid treemode %s", user_data.mode)
-        currentmode = makeselector(modelist,modelist[treemode])
-        # Dont need this as javascript uses the API to do updates
-        # currentmode += '<P><input type="submit" onclick="ChangeMode(\'\')" value="Change" >'
-        return render.tree("RGB Christmas Tree",currentmode)
+        #if (user_data.mode != ""):
+        #    try: 
+        #        if (user_data.mode.upper == "ON"):
+        #            currenttreemode = 1
+        #        else:
+        #            currenttreemode = modelist.index(user_data.mode)
+        #        log.info("new treemode %s", currenttreemode)
+        #        treemodeset = True
+        #    except:
+        #        log.debug("Invalid treemode %s", user_data.mode)
+        currentstate = makeselector(statelist,statelist[treestate]) 
+        currentmode = makeselector(modelist,modelist[currenttreemode])
+        modeno = 0
+        checks = ""
+        for modevalue in modelist:
+            #log.info("mode=" + modevalue)
+            #Statusjson['mode' + str(modeno)] = modevalue
+            onchange="ToggleMode('togglemode', '" + str(modeno) + "')"
+            checked = allowedmodes.count(modeno)
+            checks = checks + makeinput("mode" + str(modeno), modevalue, onchange,checked) + modevalue + "<BR>\n"
+            modeno = modeno + 1
+        brightnessoptions = makeselector(range(1,maxbrightness+1), requiredbrightness)
+
+        return render.tree("RGB Christmas Tree",currentstate,currentmode,checks, brightnessoptions)
+
+class settings:
+    def GET(self):
+        currentmode = makeselector(modelist,modelist[currenttreemode])
+        modeno = 0
+        checks = ""
+        for modevalue in modelist:
+            #log.info("mode=" + modevalue)
+            #Statusjson['mode' + str(modeno)] = modevalue
+            onchange="ToggleMode('togglemode', '" + str(modeno) + "')"
+            checks = checks + "<input type=\"checkbox\" id=\"mode" + str(modeno) + "\" name=\"" + modevalue + "\" onclick=\"" + onchange + "\">" + modevalue + "<BR>"
+            modeno = modeno + 1
+
+        return render.settings("RGB Christmas Tree",currentmode,checks)
 
 class api:
     def GET(self):
-        global treemode, treemodeset, nextdisplay, requiredbrightness, fixed_colour, timeleft
+        global currenttreemode, treemodeset, nextdisplay, requiredbrightness, fixed_colour, timeleft, allowedmodes, displaytime, lasttreemode, treestate, maxbrightness, lasttreestate
 
         user_data = web.input(action="",value="")
 
         try:
-            if (user_data.action != "status"):
-                log.info("action=%s",user_data.action)
-    #		if (user_data.value != None):
-    #			log.info("value=%s",user_data.value)
+            action = user_data.action.upper()
+            if (action != "STATUS"):
+                if (user_data.value != ""):
+                    log.info("action=%s, value=%s",action,user_data.value)
+                else:
+                    log.info("action=%s",action)
+            #else:
+            #    log.info("action=%s, value=%s",user_data.action,user_data.value)
 
-            if (user_data.action == "mode"):
+
+            if (action == "STATE"):
                 try:
-                    if (user_data.value.upper == "ON"):
-                        treemode = defaulttreemode
-                        requiredbrightness = defaultrequiredbrightness
-                        tree.brightness_bits = requiredbrightness
+                    #if (user_data.value.upper() == "ON"):
+                        #currenttreemode = defaulttreemode
+                    #    treestate = statelist.index(user_data.value)
+                        #requiredbrightness = defaultrequiredbrightness
+                        #tree.brightness_bits = requiredbrightness
+                    #else
+                    if (user_data.value.upper() == "LAST"):
+                        currenttreemode = lasttreemode
+                        treestate = lasttreestate
+                        if (currenttreemode == 0):
+                            currenttreemode = defaulttreemode
+                        if (treestate == 0):
+                            treestate = defaulttreestate
                     else:
-                        treemode = modelist.index(user_data.value)
-                    log.info("new treemode %s", treemode)
+                        treestate = statelist.index(user_data.value)
+
+                    log.info("new treestate %s", treestate)
                     treemodeset = True
-                except:
-                    log.info("unknown treemode %s", ser_data.value)
+                    if (currenttreemode >= 0):
+                        lasttreemode = currenttreemode
+                    if (treestate != lasttreestate):
+                        lasttreestate = treestate
+                except Exception as e:
+                    log.info("unknown treemode %s", user_data.value)
+                    log.error("Exception is '%s'" , e)
 
-            elif (user_data.action == "modeno"):
-                treemode = int(user_data.value)
-                log.info("new treemode %d", treemode)
+            if (action == "MODE"):
+                try:
+                    currenttreemode = modelist.index(user_data.value)
+                    log.info("new treemode %s", currenttreemode)
+                    treemodeset = True
+                    if (treemode >= 0):
+                        lasttreemode = currenttreemode
+                except Exception as e:
+                    log.info("unknown treemode %s", user_data.value)
+                    log.error("Exception is '%s'" , e)
+
+            elif (action == "MODENO"):
+                currenttreemode = int(user_data.value)
+                log.info("new treemode %d", currenttreemode)
                 treemodeset = True
-
+                if (treemode >= 0):
+                    lasttreemode = currenttreemode
+                    
             # Brightness value 1 to 31
-            elif (user_data.action == "brightness"):
+            elif (action == "BRIGHTNESS"):
                 requiredbrightness = int(user_data.value)
-                if (requiredbrightness > 31):
-                    requiredbrightness = 31
+                if (requiredbrightness > maxbrightness):
+                    requiredbrightness = maxbrightness
                 elif (requiredbrightness < 1):
                     requiredbrightness = 1
                 log.info("new brightness %d", requiredbrightness)
@@ -383,9 +463,9 @@ class api:
                 #tree.brightness = (requiredbrightness/31.0)/2.0
 
             # Brightness value as a percentage. Converted to 1 to 20 range
-            elif (user_data.action == "percentage"):
-                requiredbrightness = int(20/100*int(user_data.value))
-                log.info("new brightness %d", requiredbrightness)
+            elif (action == "PERCENTAGE"):
+                requiredbrightness = int((maxbrightness/100)*int(user_data.value))
+                log.info("new brightness %s", user_data.value)
                 if requiredbrightness < 1:
                     requiredbrightness = 1
                 elif (requiredbrightness > 31):
@@ -393,32 +473,56 @@ class api:
                 log.info("new brightness (1-31) %d", requiredbrightness)
                 tree.brightness_bits = int(requiredbrightness)
 
-            elif (user_data.action == "shutdown"):
+            elif (action == "SHUTDOWN"):
                 StopAll("shutdown")
                 log.debug("Shutting Down Now")
+                with subprocess.Popen("sudo /sbin/shutdown now", stdout=subprocess.PIPE, shell=True) as proc:
+                    log.Info(proc.stdout.read())
 
-            elif (user_data.action == "setdefaults"):
+            elif (action == "SETDEFAULTS"):
                 SaveDefaults()
 
-            elif (user_data.action == "restart"):
-                StopAll("")
+            elif (action == "RESTART"):
                 log.debug("Restarting Tree Display")
+                StopAll("")
                 time.sleep(2)
 
-            elif ((user_data.action == "color") | (user_data.action == "colour")):
+            elif (action == "DISPLAYTIME"):
+                displaytime = int(user_data.value)
+
+            elif ((action == "COLOR") | (action == "COLOUR")):
                 log.debug("Colour Value %s", user_data.value)
                 fixed_colour_list = user_data.value.split(",")
-                fixed_colour = (int(fixed_colour_list[0]), int(fixed_colour_list[1]), int(fixed_colour_list[2]))
-                treemode = modecount+1
+                fixed_colour = (int(fixed_colour_list[0])/255, int(fixed_colour_list[1])/255, int(fixed_colour_list[2])/255)
+                currenttreemode = modecount-1
                 log.info("new colour %s", fixed_colour)
                 treemodeset = True
+                treestate = 1 # fixed mode
+                if (currenttreemode >= 0):
+                    lasttreemode = currenttreemode                
+            elif (action == "TOGGLEMODE"):
+                modeno = int(user_data.value)
+                if (allowedmodes.count(modeno) > 0):
+                    allowedmodes.remove(modeno)
+                else:
+                    allowedmodes.append(modeno)
+
         except Exception as e: # stream not valid I guess
             log.error("Exception in Web Server: %s" , e)
 
-#		currentmode = makeselector(modelist,modelist[treemode])
-#		currentmode += '<P><input type="submit" onclick="ChangeMode(\'\')" value="Change" >'
+        #		currentmode = makeselector(modelist,modelist[currenttreemode])
+        #		currentmode += '<P><input type="submit" onclick="ChangeMode(\'\')" value="Change" >'
 
-        Statusjson = { 'ModeText': modelist[treemode], 'ModeNo': treemode, 'Current': modelist[nextdisplay + 1], 'Brightness': requiredbrightness, 'displaytime': int(displaytime), 'timeleft': int(timeleft) }
+        Statusjson = { 'TreeState': statelist[treestate], 'TreeStateNo': treestate, 'ModeText': modelist[currenttreemode], 'ModeNo': currenttreemode, 'Current': modelist[nextdisplay], 'Brightness': requiredbrightness, 'displaytime': int(displaytime), 'timeleft': int(timeleft) }
+        #if (user_data.action == "status") & (user_data.value == "modes"):
+        #modeno = 0
+        #for modevalue in modelist:
+        #    #log.info("mode=" + modevalue)
+        #    if (modeno > 1):
+        #       Statusjson['mode' + str(modeno)] = modevalue
+        #    modeno = modeno + 1
+        Statusjson['allowedmodes'] = allowedmodes
+        #Statusjson['modecount'] = str(modeno-1)
 
         web.header('Content-Type','application/json')
         return json.dumps(Statusjson)
@@ -454,6 +558,14 @@ class WebApplicationHTTP(threading.Thread):
         log.debug("Shutting down http web server")
         apphttp.stop()
 
+def makeinput(id,name,onclick, checked):
+    madeinput = "<input type=\"checkbox\" id=\"" + id + "\" name=\"" + name + "\" onclick=\"" + onclick + "\""
+    if (checked > 0):
+        madeinput = madeinput + " checked >"
+    else:
+        madeinput = madeinput + ">"
+    return madeinput
+
 def makeselector(Selections,CurrentSelection):
     makeselector = ""
     #'<select id="' + "selector" + '" name="' + "sel" + '" onchange="ChangeMode(\'\')" >'
@@ -463,18 +575,19 @@ def makeselector(Selections,CurrentSelection):
             makeselector += '<option selected '
         else:
             makeselector += '<option '
-        makeselector += 'value="' + selno +'">' + selno + '</option>\n'
+        makeselector += 'value="' + str(selno) +'">' + str(selno) + '</option>\n'
     #makeselector += '<option value="XX">XX</option>\n'
     #makeselector += '</select>'
     return makeselector
 
 def SaveDefaults():
-    global treemode, requiredbrightness
-    Settingsjson = { 'mode': treemode, 'brightness': requiredbrightness, "displaytime": displaytime }
+    global currenttreemode, requiredbrightness, maxbrightness
+    Settingsjson = { 'state':treestate, 'mode': currenttreemode, 'brightness': requiredbrightness, "displaytime": displaytime, "allowedmodes" : allowedmodes, 'maxbrightness':maxbrightness }
     with open("settings.json", "w") as fi:
         json.dump(Settingsjson, fi)
-    defaulttreemode = treemode
+    defaulttreemode = currenttreemode
     defaultrequiredbrightness = requiredbrightness
+    defaulttreestate = treestate
 
 # ------------------------------------------------ Main --------------------------------
 
@@ -528,22 +641,29 @@ timeleft = 0.0 # how long until the next displaychanged for AUto mode
 
 # setup defaults
 defaulttreemode = 1
+defaulttreestate = 0
 defaultrequiredbrightness = requiredbrightness
 defaultdisplaytime = displaytime
+
+# Need to start with some random colour
+fixed_colour = random_color()
 
 if (os.path.isfile("settings.json")):
     try:
         with open("settings.json", "r") as f:
             my_dict = json.load(f)
-        treemode = my_dict["mode"]
+        currenttreemode = my_dict["mode"]
         requiredbrightness = my_dict["brightness"]
         displaytime = float(my_dict["displaytime"])
-        defaulttreemode = treemode
+        defaulttreemode = currenttreemode
         defaultrequiredbrightness = requiredbrightness
         defaultdisplaytime = displaytime
+        defaulttreestate = my_dict["state"]
+        allowedmodes = my_dict["allowedmodes"]
+        maxbrightness = my_dict["maxbrightness"]
         log.debug("Read defaults")
     except:
-    	log.debug("settings.json file invalid")
+    	log.debug("settings.json file invalid or incomplete")
 
 tree = RGBXmasTree(brightness=requiredbrightness/31)
 treemodeset = False
@@ -569,8 +689,6 @@ displaythread.start()
 ##ExecStartPost=/usr/bin/sdptool add SP
 ##ExecStartPost=/bin/hciconfig hci0 piscan
 
-# Need to start with something
-fixed_colour = random_color()
 
 # open Bluetooth serial interface for control
  
@@ -621,7 +739,7 @@ try:
         timeleft = 	timeleft - treespeed
         #
         if (timeleft < 0) or (treemodeset == True):
-            #log.debug("Change %d", treemode)
+            #log.debug("Change %d", currenttreemode)
             displaythread.next()
             treemodeset = False
             timeleft = displaytime
@@ -642,15 +760,9 @@ finally:
     log.debug("Main Stopped")
 
 if systemservice:
+    notifier.notify("WATCHDOG=1")
     notifier.notify("STOPPING=1")
 
 log.debug("Exiting")
-#displaythread.join()
-#treeweb.join()
-#tree.off()
 
-log.debug("Checking for shutdown")
-# What to do when exiting
-if (exitaction == "shutdown"):
-    with subprocess.Popen("sudo /sbin/shutdown now", stdout=subprocess.PIPE, shell=True) as proc:
-        log.Info(proc.stdout.read())
+# For 2.2 shutdown is done directly in the webpage so this doesnt get restarted.
