@@ -1,0 +1,25 @@
+{
+    "config_topic": "homeassistant/light/%MYNAME%/display/config",
+    "availability_topic": "homeassistant/light/%MYNAME%/availability",
+    "name": "Display Colour",
+    "command_topic": "homeassistant/light/%MYNAME%/display/set",
+    "configuration_url":"%CONFIGURL%",
+    "state_topic": "homeassistant/light/%MYNAME%/display/state",
+    "brightness_state_topic":"homeassistant/light/%MYNAME%/brightness",
+    "brightness_command_topic":"homeassistant/light/%MYNAME%/setbrightness",
+    "brightness_scale": 100,
+    "rgb_state_topic": "homeassistant/light/%MYNAME%/display/colour",
+    "rgb_command_topic": "homeassistant/light/%MYNAME%/display/setcolour",
+    "rgb_value_template": "{{ value }}",    
+    "payload_off": "OFF",
+    "payload_on": "ON",
+    "unique_id": "DisplayOn%MAC%",
+    "unit_of_measurement": "%",
+    "device": {
+        "identifiers": "%MYNAME%:%MAC%",
+        "manufacturer": "AJP",
+        "model": "Pi",
+        "name": "%MYNAME%",
+        "sw_version": "%VERSION%"
+    }
+}

@@ -33,6 +33,12 @@ using Raspbian Lite, you'll need to install gpiozero with:
 sudo apt install python3-gpiozero
 ```
 
+Also requires the following
+```bash
+sudo pip install web.py
+sudo pip install paho-mqtt
+```
+
 Might require the following if [sdnotify](https://github.com/bb4242/sdnotify) is not present
 ```bash
 pip install sdnotify
@@ -99,3 +105,4 @@ http://pitree:8080/api?action=<comand>&value=<value>
 # Changes
 - 2.2 Fixed bugs
 - 2.3 Added settings for Auto mode to cotrol which layout can be chosen
+- 2.4 Added partial support for Homeassistant integration via MQTT

@@ -4,10 +4,12 @@ Description="RGB Tree"
 [Service]
 TimeoutStartSec=30
 WorkingDirectory=/home/pi/tree
-ExecStart=/usr/local/bin/python3.7 /home/pi/tree/thetree.py --service --log DEBUG
+ExecStart=/usr/local/bin/python3 /home/pi/tree/thetree.py --service --log DEBUG
 Restart=always
 KillSignal=SIGINT
 #User=pi
+# Note: setting PYTHONUNBUFFERED is necessary to see the output of this service in the journal
+# See https://docs.python.org/2/using/cmdline.html#envvar-PYTHONUNBUFFERED
 Environment=PYTHONUNBUFFERED=true
 Type=notify
 # restart after 20 seconds if it fails

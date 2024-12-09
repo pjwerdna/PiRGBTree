@@ -1,0 +1,19 @@
+{
+    "config_topic": "homeassistant/select/%MYNAME%/display/config",
+    "availability_topic": "homeassistant/light/%MYNAME%/availability",
+    "name": "Display Mode",
+    "command_topic": "homeassistant/select/%MYNAME%/mode/set",
+    "state_topic": "homeassistant/select/%MYNAME%/mode/state",
+    "options": ["%MODES%"],
+    "unique_id": "ModeOn%MYNAME%",
+    "device": {
+        "identifiers": "%MYNAME%:%MAC%",
+        "manufacturer": "AJP",
+        "model": "Pi",
+        "name": "%MYNAME%",
+        "sw_version": "%VERSION%"
+    }
+}
+    
+    
+    

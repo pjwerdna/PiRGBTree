@@ -1,4 +1,4 @@
-$def with (title,StateSelect,ModeSelect,checks,brightnesses)
+$def with (title,StateSelect,ModeSelect,checks,brightnesses, mqttserver, mqttusername, mqttpassword)
 <html>
 
 <head>
@@ -36,6 +36,27 @@ $def with (title,StateSelect,ModeSelect,checks,brightnesses)
 				//~ document.getElementById("message").innerHTML = ""
 			}
 		}
+
+		function PostMqtt() {
+
+			path = location.href.substring(0, location.href.indexOf("/", 10));
+
+			var url = path + "/api?action=mqtt&value=0";
+			
+			
+			document.getElementById('mqttpassword').value
+
+			xmlhttp.open("POST", url, true);
+			xmlhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+			xmlhttp.send(JSON.stringify({ "mqttserver": document.getElementById('mqttserver').value, 
+				"mqttusername": document.getElementById('mqttusername').value,
+				"mqttpassword": document.getElementById('mqttpassword').value,
+				}));
+			//xmlhttp.send();
+
+			return false;
+
+		};
 
 		function GetSetMode(comand, value) {
 
@@ -83,6 +104,9 @@ $def with (title,StateSelect,ModeSelect,checks,brightnesses)
 					document.getElementById('timeleft').innerHTML = myarr.timeleft
 				}
 			}
+			document.getElementById('mqttserver').value = myarr.mqttserver
+			document.getElementById('mqttusername').value = myarr.mqttusername
+			document.getElementById('mqttpassword').value = myarr.mqttpassword
 		};
 
 		function ShowSettingsArea(settingsvalue) {
@@ -128,8 +152,16 @@ $def with (title,StateSelect,ModeSelect,checks,brightnesses)
 			</TD>
 			<TD rowspan=7 width=400 height=420>
 				<div id="settingsarea" style="display:none">
-					<div>Settings Available in Auto Mode</div>
+					<div>Modes Available in Random State</div>
 					<div>$:checks</div>
+					<table border="0">
+					<BR>
+					<TR><TD colspan="2" align="center">Homeassistant Config</TD></TR>
+					<TR><TD>MQTT Server</TD><TD>$:mqttserver</TD></TR>
+					<TR><TD>MQTT Username</TD><TD>$:mqttusername</TD></TR>
+					<TR><TD>MQTT Password</TD><TD>$:mqttpassword</TD></TR>
+					<TR><TD></TD><TD><input type="button" value="Set MQTT" onclick="PostMqtt()"></TD></TR>
+					</table>
 				</div>
 				<div id="treearea" style="display:block; text-align: center;">
 					<img src="/static/pitree.jpg" width=400 height=400>
